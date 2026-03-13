@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.get("/", (req, res) => {
     res.send("Bot is running");
@@ -10,13 +10,12 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
     console.log("Server running on port " + PORT);
 });
+
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const TelegramBot = require('node-telegram-bot-api');
 const QRCode = require('qrcode');
 const fs = require("fs");
 const path = require("path");
-
-/* crash protection */
 
 process.on("uncaughtException", err => {
     console.log("Uncaught:", err);
@@ -30,6 +29,10 @@ const telegramToken = "8654524053:AAErpvhPZDADskFgTcDk1wixOMDtJwPDYEg";
 
 const bot = new TelegramBot(telegramToken, { polling: true });
 
+bot.on("polling_error", (err) => {
+    console.log("Polling error:", err.code);
+});
+
 let client = null;
 let userState = {};
 
@@ -38,8 +41,6 @@ function sleep(ms) {
 }
 
 console.log("Test Bot Started...");
-
-/* ================= MENU ================= */
 
 bot.onText(/\/start|\/menu/, (msg) => {
 
@@ -58,8 +59,6 @@ bot.onText(/\/start|\/menu/, (msg) => {
 
 });
 
-/* ================= CONNECT ================= */
-
 bot.onText(/\/connect/, async (msg) => {
 
     if (client) {
@@ -70,14 +69,14 @@ bot.onText(/\/connect/, async (msg) => {
     client = new Client({
 
         authStrategy: new LocalAuth({
-            clientId: "testbot"
+            clientId: "renderbot"
         }),
 
         puppeteer: {
             headless: true,
             args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
+                '--no-sandbox',
+                '--disable-setuid-sandbox'
             ]
         }
 
@@ -89,7 +88,10 @@ bot.onText(/\/connect/, async (msg) => {
 
         const qrImage = await QRCode.toBuffer(qr);
 
-        bot.sendPhoto(msg.chat.id, qrImage, {
+        bot.sendPhoto(msg.chat.id, {
+            source: qrImage,
+            filename: "qr.png"
+        }, {
             caption: "Scan QR with WhatsApp"
         });
 
@@ -117,13 +119,9 @@ bot.onText(/\/connect/, async (msg) => {
 
 });
 
-/* ================= MESSAGE HANDLER ================= */
-
 bot.on("message", async (msg) => {
 
 const chatId = msg.chat.id;
-
-/* CONNECT BUTTON */
 
 if (msg.text === "🔗 Connect WhatsApp") {
 
@@ -131,8 +129,6 @@ if (msg.text === "🔗 Connect WhatsApp") {
     return;
 
 }
-
-/* CREATE GROUP BUTTON */
 
 if (msg.text === "📦 Create Group") {
 
@@ -148,8 +144,6 @@ if (msg.text === "📦 Create Group") {
     return;
 }
 
-/* DISCONNECT BUTTON */
-
 if (msg.text === "🚪 Disconnect WhatsApp") {
 
     if (!client) {
@@ -162,9 +156,7 @@ if (msg.text === "🚪 Disconnect WhatsApp") {
         await client.logout();
         await client.destroy();
 
-    } catch (err) {
-        console.log(err);
-    }
+    } catch (err) {}
 
     client = null;
 
@@ -180,8 +172,6 @@ if (msg.text === "🚪 Disconnect WhatsApp") {
 }
 
 if (!userState[chatId]) return;
-
-/* ================= GROUP FLOW ================= */
 
 if (userState[chatId].step === "askName") {
 
@@ -256,8 +246,6 @@ if (userState[chatId].step === "askDelay") {
     userState[chatId].step = "createGroups";
 
 }
-
-/* CREATE GROUPS */
 
 if (userState[chatId].step === "createGroups") {
 
